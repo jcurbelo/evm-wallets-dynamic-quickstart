@@ -12,7 +12,7 @@
 
 <br>
 <br>
-<img src="todo-update-with-image" alt="Image" width="full">
+<img src="https://github.com/user-attachments/assets/22847c83-81b8-4162-b8d5-146ed108b383" alt="Image" width="full">
 </div>
 
 ## Introduction
