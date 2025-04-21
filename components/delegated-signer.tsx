@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import {
   type DelegatedSigner,
-  useAuth,
+  EVMSmartWalletChain,
   useWallet,
 } from "@crossmint/client-sdk-react-ui";
 import { cn } from "@/lib/utils";
 
 export function DelegatedSigner() {
   const { wallet, type } = useWallet();
-  const { jwt } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
   const [delegatedSigners, setDelegatedSigners] = useState<DelegatedSigner[]>(
@@ -20,16 +19,16 @@ export function DelegatedSigner() {
 
   useEffect(() => {
     const fetchDelegatedSigners = async () => {
-      if (wallet != null && type === "solana-smart-wallet") {
+      if (wallet != null && type === "evm-smart-wallet") {
         const signers = await wallet.getDelegatedSigners();
         setDelegatedSigners(signers);
       }
     };
     fetchDelegatedSigners();
-  }, [wallet, jwt]);
+  }, [wallet]);
 
   const addNewSigner = async () => {
-    if (wallet == null || type !== "solana-smart-wallet") {
+    if (wallet == null || type !== "evm-smart-wallet") {
       throw new Error("No wallet connected");
     }
     if (!newSigner) {
@@ -38,7 +37,10 @@ export function DelegatedSigner() {
     }
     try {
       setIsLoading(true);
-      await wallet.addDelegatedSigner(`solana-keypair:${newSigner}`);
+      await wallet.addDelegatedSigner({
+        chain: process.env.NEXT_PUBLIC_CHAIN as EVMSmartWalletChain,
+        signer: newSigner,
+      });
       const signers = await wallet.getDelegatedSigners();
       setDelegatedSigners(signers);
     } catch (err) {
