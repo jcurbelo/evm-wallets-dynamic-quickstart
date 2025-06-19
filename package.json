@@ -9,9 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@crossmint/client-sdk-react-ui": "^1.18.2",
-    "@dynamic-labs/ethereum": "^4.12.4",
-    "@dynamic-labs/sdk-react-core": "^4.12.4",
+    "@crossmint/client-sdk-react-ui": "2.2.0",
+    "@crossmint/wallets-sdk": "^0.10.2",
+    "@dynamic-labs/ethereum": "4.12.4",
+    "@dynamic-labs/sdk-react-core": "4.12.4",
     "@vercel/analytics": "^1.5.0",
     "clsx": "^2.1.1",
     "next": "15.2.3",
@@ -19,7 +20,7 @@
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.0.2",
     "tw-animate-css": "^1.2.4",
-    "viem": "^2.27.2"
+    "viem": "2.23.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
