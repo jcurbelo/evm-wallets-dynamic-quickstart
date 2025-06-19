@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  type DelegatedSigner,
-  EVMSmartWalletChain,
-  useWallet,
-} from "@crossmint/client-sdk-react-ui";
+import { type DelegatedSigner } from "@crossmint/client-sdk-react-ui";
 import { cn } from "@/lib/utils";
+import { useDynamicConnector } from "@/hooks/useDynamicConnector";
 
 export function DelegatedSigner() {
-  const { wallet, type } = useWallet();
+  const { crossmintWallet } = useDynamicConnector();
 
   const [isLoading, setIsLoading] = useState(false);
   const [delegatedSigners, setDelegatedSigners] = useState<DelegatedSigner[]>(
@@ -19,16 +16,17 @@ export function DelegatedSigner() {
 
   useEffect(() => {
     const fetchDelegatedSigners = async () => {
-      if (wallet != null && type === "evm-smart-wallet") {
-        const signers = await wallet.getDelegatedSigners();
-        setDelegatedSigners(signers);
+      if (!crossmintWallet) {
+        return;
       }
+      const signers = await crossmintWallet.delegatedSigners();
+      setDelegatedSigners(signers);
     };
     fetchDelegatedSigners();
-  }, [wallet]);
+  }, [crossmintWallet]);
 
   const addNewSigner = async () => {
-    if (wallet == null || type !== "evm-smart-wallet") {
+    if (!crossmintWallet) {
       throw new Error("No wallet connected");
     }
     if (!newSigner) {
@@ -37,11 +35,10 @@ export function DelegatedSigner() {
     }
     try {
       setIsLoading(true);
-      await wallet.addDelegatedSigner({
-        chain: process.env.NEXT_PUBLIC_CHAIN as EVMSmartWalletChain,
+      await crossmintWallet.addDelegatedSigner({
         signer: newSigner,
       });
-      const signers = await wallet.getDelegatedSigners();
+      const signers = await crossmintWallet.delegatedSigners();
       setDelegatedSigners(signers);
     } catch (err) {
       console.error("Delegated Signer: ", err);
@@ -98,7 +95,7 @@ export function DelegatedSigner() {
                     key={index}
                     className="whitespace-nowrap px-2 py-1 rounded text-xs text-gray-600"
                   >
-                    {signer.locator}
+                    {signer.signer}
                   </li>
                 ))}
               </ul>

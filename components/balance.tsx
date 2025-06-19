@@ -2,24 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import {
-  useWallet,
-  type WalletBalance,
-  type EVMSmartWalletChain,
-} from "@crossmint/client-sdk-react-ui";
+import { useDynamicConnector } from "@/hooks/useDynamicConnector";
+import { formatUnits } from "viem";
+import { type Balances, type Chain } from "@crossmint/wallets-sdk";
 
 export function WalletBalance() {
-  const { wallet, type } = useWallet();
-  const [balances, setBalances] = useState<WalletBalance>([]);
+  const { crossmintWallet } = useDynamicConnector();
+  const [balances, setBalances] = useState<Balances>();
 
   useEffect(() => {
     async function fetchBalances() {
-      if (!wallet || type !== "evm-smart-wallet") return;
+      if (!crossmintWallet) return;
       try {
-        const balances = await wallet.getBalances({
-          chain: process.env.NEXT_PUBLIC_CHAIN as EVMSmartWalletChain,
-          tokens: ["eth", "usdc"],
-        });
+        const balances = await crossmintWallet.balances(
+          ["eth", "usdc"],
+          [process.env.NEXT_PUBLIC_CHAIN as Chain]
+        );
         setBalances(balances);
       } catch (error) {
         console.error("Error fetching wallet balances:", error);
@@ -27,16 +25,17 @@ export function WalletBalance() {
       }
     }
     fetchBalances();
-  }, [wallet, type]);
+  }, [crossmintWallet]);
 
   const formatBalance = (balance: string, decimals: number) => {
-    return (Number(balance) / Math.pow(10, decimals)).toFixed(2);
+    return formatUnits(BigInt(balance), decimals);
   };
 
-  const ethBalance =
-    balances?.find((t) => t.token === "eth")?.balances.total || "0";
-  const usdcBalance =
-    balances?.find((t) => t.token === "usdc")?.balances.total || "0";
+  const ethBalance = balances?.nativeToken?.rawAmount || "0";
+  const usdcBalance = balances?.usdc?.rawAmount || "0";
+
+  const ethDecimals = balances?.nativeToken?.decimals || 18;
+  const usdcDecimals = balances?.usdc?.decimals || 6;
 
   return (
     <div className="flex flex-col gap-2">
@@ -46,7 +45,7 @@ export function WalletBalance() {
           <p className="font-medium">Ethereum</p>
         </div>
         <div className="text-gray-700 font-medium">
-          {formatBalance(ethBalance, 9)} ETH
+          {formatBalance(ethBalance, ethDecimals)} ETH
         </div>
       </div>
       <div className="border-t my-1"></div>
@@ -56,7 +55,7 @@ export function WalletBalance() {
           <p className="font-medium">USDC</p>
         </div>
         <div className="text-gray-700 font-medium">
-          $ {formatBalance(usdcBalance, 6)}
+          $ {formatBalance(usdcBalance, usdcDecimals)}
         </div>
       </div>
       <div className="flex flex-col gap-2 mt-2">

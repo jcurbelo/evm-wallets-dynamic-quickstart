@@ -1,25 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import {
+  type Chain,
   useCrossmint,
   useWallet as useCrossmintWallet,
-  type EVMSmartWalletChain,
 } from "@crossmint/client-sdk-react-ui";
+import { EVMChain, EVMWallet, Wallet } from "@crossmint/wallets-sdk";
 import {
   getAuthToken,
   useDynamicContext,
   useIsLoggedIn,
 } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
-import { SignableMessage } from "viem";
+import { Account, Address, SignableMessage } from "viem";
 
 export const useDynamicConnector = () => {
-  const { crossmint, setJwt } = useCrossmint();
+  const { crossmint, experimental_setCustomAuth } = useCrossmint();
   const {
     getOrCreateWallet: getOrCreateCrossmintWallet,
     status: crossmintWalletStatus,
-    error: crossmintWalletError,
     wallet: crossmintWallet,
   } = useCrossmintWallet();
 
@@ -28,9 +28,13 @@ export const useDynamicConnector = () => {
   const isAuthenticated = useIsLoggedIn();
   const jwt = getAuthToken();
 
+  const isCreatingWallet = useRef(false);
+
   useEffect(() => {
-    setJwt(jwt);
-  }, [jwt]);
+    experimental_setCustomAuth({
+      jwt,
+    });
+  }, [jwt, experimental_setCustomAuth]);
 
   useEffect(() => {
     const fetchCrossmintWallet = async () => {
@@ -38,48 +42,58 @@ export const useDynamicConnector = () => {
         !crossmint.jwt ||
         !isAuthenticated ||
         !dynamicPrimaryWallet ||
-        !isEthereumWallet(dynamicPrimaryWallet)
+        !isEthereumWallet(dynamicPrimaryWallet) ||
+        !!crossmintWallet ||
+        isCreatingWallet.current
       ) {
-        return null;
+        return;
       }
 
       try {
+        isCreatingWallet.current = true;
         const dynamicClient = await dynamicPrimaryWallet.getWalletClient();
+
         await getOrCreateCrossmintWallet({
-          type: "evm-smart-wallet",
-          args: {
-            chain: process.env.NEXT_PUBLIC_CHAIN_ID as EVMSmartWalletChain,
-            adminSigner: {
-              address: dynamicPrimaryWallet.address,
-              type: "evm-keypair",
-              signer: {
-                type: "viem_v2",
-                // @ts-ignore todo: fix type issue in Wallets SDK
-                account: {
-                  ...dynamicClient.account,
-                  signMessage: async (data: { message: SignableMessage }) => {
-                    return await dynamicClient.signMessage({
-                      message: data.message,
-                    });
-                  },
-                },
+          chain: process.env.NEXT_PUBLIC_CHAIN as Chain,
+          // @ts-ignore todo: fix type issue in Wallets SDK
+          signer: {
+            type: "external-wallet",
+            address: dynamicPrimaryWallet.address,
+            viemAccount: {
+              ...dynamicClient.account,
+              signMessage: async (data: { message: SignableMessage }) => {
+                return await dynamicClient.signMessage({
+                  message: data.message,
+                });
               },
             },
           },
         });
       } catch (error) {
         console.error("Failed to create Crossmint wallet:", error);
+      } finally {
+        isCreatingWallet.current = false;
       }
     };
 
     fetchCrossmintWallet();
-  }, [jwt, isAuthenticated, dynamicPrimaryWallet, crossmint.jwt]);
+  }, [
+    crossmint.jwt,
+    isAuthenticated,
+    dynamicPrimaryWallet,
+    getOrCreateCrossmintWallet,
+  ]);
+
+  // Memoize the EVMWallet creation to prevent infinite re-renders
+  const memoizedCrossmintWallet = useMemo(() => {
+    if (!crossmintWallet) return undefined;
+    return EVMWallet.from(crossmintWallet as unknown as Wallet<EVMChain>);
+  }, [crossmintWallet]);
 
   return {
     dynamicPrimaryWallet,
-    crossmintWallet,
+    crossmintWallet: memoizedCrossmintWallet,
     crossmintWalletStatus,
-    crossmintWalletError,
     isLoading: crossmintWalletStatus === "in-progress" || !sdkHasLoaded,
   };
 };

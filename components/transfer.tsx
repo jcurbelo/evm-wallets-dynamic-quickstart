@@ -1,14 +1,11 @@
 "use client";
 
+import { useDynamicConnector } from "@/hooks/useDynamicConnector";
 import { useState } from "react";
-import {
-  type EVMSmartWalletChain,
-  useWallet,
-} from "@crossmint/client-sdk-react-ui";
 import { Address, encodeFunctionData, erc20Abi, isAddress } from "viem";
 
 export function TransferFunds() {
-  const { wallet, type } = useWallet();
+  const { crossmintWallet } = useDynamicConnector();
   const [token, setToken] = useState<"eth" | "usdc" | null>(null);
   const [recipient, setRecipient] = useState<string | null>(null);
   const [amount, setAmount] = useState<number | null>(null);
@@ -16,13 +13,7 @@ export function TransferFunds() {
   const [txnHash, setTxnHash] = useState<string | null>(null);
 
   async function handleOnTransfer() {
-    if (
-      wallet == null ||
-      token == null ||
-      type !== "evm-smart-wallet" ||
-      recipient == null ||
-      amount == null
-    ) {
+    if (!crossmintWallet || !token || !recipient || !amount) {
       alert("Transfer: missing required fields");
       return;
     }
@@ -38,11 +29,11 @@ export function TransferFunds() {
       let txn;
       if (token === "eth") {
         // For ETH transfers, we use native transfer
-        txn = await wallet.sendTransaction({
+        txn = await crossmintWallet.sendTransaction({
           to: recipient as Address,
           value: BigInt(amount * 10 ** 9), // Convert to Gwei
           data: "0x", // Empty data for native transfers
-          chain: process.env.NEXT_PUBLIC_CHAIN as EVMSmartWalletChain,
+          chain: crossmintWallet.chain,
         });
       } else if (token === "usdc") {
         // For USDC transfers, we use ERC20 transfer
@@ -51,11 +42,11 @@ export function TransferFunds() {
           functionName: "transfer",
           args: [recipient as Address, BigInt(amount * 10 ** 6)], // USDC has 6 decimals
         });
-        txn = await wallet.sendTransaction({
+        txn = await crossmintWallet.sendTransaction({
           to: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7", // USDC token mint on OP sepolia
           value: BigInt(0),
           data,
-          chain: process.env.NEXT_PUBLIC_CHAIN as EVMSmartWalletChain,
+          chain: crossmintWallet.chain,
         });
       }
       setTxnHash(`https://optimism-sepolia.blockscout.com/tx/${txn}`);
